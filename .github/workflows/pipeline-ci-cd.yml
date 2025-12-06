@@ -1,85 +1,183 @@
-# ✅ Name of the Workflow
-name: Pipeline CI/CD frontend-app
 
-# ✅ Trigger this workflow on push to main branch
+name: frontend-pipline
+
 on:
-  push:
-    branches:
-      - main
-
-# ✅ Global Environment Variables
+    push:
+        branches:
+            - main
+    workflow_dispatch:
 env:
-  BUILD_NUMBER: ${{ github.run_number }}  # Unique build number for the pipeline run
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/frontend-app:${{ github.run_number }}
-  VITE_API_URL: https://api.lebondeveloppeur.net
-  PORT: 3000  # Define a configurable port
-
+  VERSION_NUMBER: ${{github.run_number}}
+  SERVICE_NAME: ${{vars.SERVICE_NAME}}
+  IMAGE_NAME: ${{vars.IMAGE_NAME}}
+  DOCKER_COMPOSE_LOCATION: ${{vars.DOCKER_COMPOSE_LOCATION}}
 jobs:
-  # ✅ Run Unit Tests
-  unit-test-job:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone Source Code
-        uses: actions/checkout@v4
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: copy code source
+              uses: actions/checkout@v6
+            - name: setup node
+              uses: actions/setup-node@v6
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+            - name: install dependency
+              run: npm i
+            - name: excute test
+              run: npm run test
 
-      - name: Install dependencies
-        run: npm install
+    build:
+        needs: test
+        runs-on: ubuntu-latest
+        steps:
+            - name: copy code source
+              uses: actions/checkout@v6
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ vars.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+            - name: build docker image
+              run: docker build -t ${{env.IMAGE_NAME}} .
+            - name: taracbilite de l ancien version
+              run : docker  tag ${{env.IMAGE_NAME}} ${{env.IMAGE_NAME}}:v${{env.VERSION_NUMBER}}
+            - name: push image
+              run: docker push ${{env.IMAGE_NAME}}:latest
+            - name: push image
+              run: docker push ${{env.IMAGE_NAME}}:v${{env.VERSION_NUMBER}}
 
-      - name: Run unit tests
-        run: npm test
+    deploy:
+        runs-on: ubuntu-latest
+        needs: build
+        steps:
+            - name: Execute remote SSH commands using password
+              uses: appleboy/ssh-action@v1
+              with:
+                  host: ${{ secrets.VPS_HOST }}
+                  username: ${{ secrets.VPS_USERNAME }}
+                  password: ${{ secrets.VPS_PASSWORD }}
+                  script: |
+                      cd ${{env.DOCKER_COMPOSE_LOCATION}}
+                      echo "pulling backend image..."
+                      docker compose pull ${{env.SERVICE_NAME}}
+                      echo "running the new image..." 
+                      docker compose up -d  --force-recreate ${{env.SERVICE_NAME}}
 
 
- # ✅ Build and Push Docker Image
-  build-and-push-job:
-    runs-on: ubuntu-latest
-    needs: [unit-test-job]  # Wait for unit test job
-    steps:
-      - name: Clone Source Code
-        uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t ${{ env.IMAGE_NAME }}  --build-arg VITE_API_URL=${{ env.VITE_API_URL }} .
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Push Docker image 
-        run: docker push ${{ env.IMAGE_NAME }}
 
 
-  # ✅ Deploy to VPS
-  deploy-job:
-    runs-on: ubuntu-latest
-    needs: build-and-push-job  
-    steps:
-      - name: Connect to the VPS using SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          script: |
 
-              # Pull the latest Docker image
-              sudo docker pull ${{ env.IMAGE_NAME }}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # ✅ Name of the Workflow
+# name: Pipeline CI/CD frontend-app
+
+# # ✅ Trigger this workflow on push to main branch
+# on:
+#   push:
+#     branches:
+#       - main
+
+# # ✅ Global Environment Variables
+# env:
+#   BUILD_NUMBER: ${{ github.run_number }}  # Unique build number for the pipeline run
+#   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/frontend-app:${{ github.run_number }}
+#   VITE_API_URL: https://api.lebondeveloppeur.net
+#   PORT: 3000  # Define a configurable port
+
+# jobs:
+#   # ✅ Run Unit Tests
+#   unit-test-job:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Clone Source Code
+#         uses: actions/checkout@v4
+
+#       - name: Set up Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: '18'
+
+#       - name: Install dependencies
+#         run: npm install
+
+#       - name: Run unit tests
+#         run: npm test
+
+
+#  # ✅ Build and Push Docker Image
+#   build-and-push-job:
+#     runs-on: ubuntu-latest
+#     needs: [unit-test-job]  # Wait for unit test job
+#     steps:
+#       - name: Clone Source Code
+#         uses: actions/checkout@v4
+
+#       - name: Build Docker image
+#         run: docker build -t ${{ env.IMAGE_NAME }}  --build-arg VITE_API_URL=${{ env.VITE_API_URL }} .
+
+#       - name: Login to Docker Hub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+#       - name: Push Docker image 
+#         run: docker push ${{ env.IMAGE_NAME }}
+
+
+#   # ✅ Deploy to VPS
+#   deploy-job:
+#     runs-on: ubuntu-latest
+#     needs: build-and-push-job  
+#     steps:
+#       - name: Connect to the VPS using SSH
+#         uses: appleboy/ssh-action@master
+#         with:
+#           host: ${{ secrets.VPS_HOST }}
+#           username: ${{ secrets.VPS_USERNAME }}
+#           password: ${{ secrets.VPS_PASSWORD }}
+#           script: |
+
+#               # Pull the latest Docker image
+#               sudo docker pull ${{ env.IMAGE_NAME }}
               
-              # Remove the old container if it exists
-              sudo docker ps -q --filter name=frontend-app | grep -q . && sudo docker rm -f frontend-app || echo "No existing container to remove"
+#               # Remove the old container if it exists
+#               sudo docker ps -q --filter name=frontend-app | grep -q . && sudo docker rm -f frontend-app || echo "No existing container to remove"
 
-              # Run the new container with environment variables
-              sudo docker run -d --name frontend-app -p ${{ env.PORT }}:80 -e NODE_ENV=production --restart always ${{ env.IMAGE_NAME }}
+#               # Run the new container with environment variables
+#               sudo docker run -d --name frontend-app -p ${{ env.PORT }}:80 -e NODE_ENV=production --restart always ${{ env.IMAGE_NAME }}
 
-              # Shows running containers
-              sudo docker ps
+#               # Shows running containers
+#               sudo docker ps
 
-              # Clean up unused images
-              sudo docker image prune -f
+#               # Clean up unused images
+#               sudo docker image prune -f
 

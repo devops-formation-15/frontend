@@ -21,3 +21,4 @@ networks:
 
 # Manual build command (for reference):
 # docker build -t assidiwassimdev/frontend-app:latest --build-arg API_URL=https://api.lebondeveloppeur.net/api .
+#fix

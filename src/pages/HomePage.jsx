@@ -44,7 +44,7 @@ const HomePage = () => {
 						No products found 😢{" "}
 						<Link to={"/create"}>
 							<Text as='span' color='blue.500' _hover={{ textDecoration: "underline" }}>
-								Create new product
+								Create si le  product
 							</Text>
 						</Link>
 					</Text>

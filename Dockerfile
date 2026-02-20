@@ -1,23 +1,21 @@
 # Stage 1: Build the React app
 FROM --platform=linux/amd64 node:18-alpine AS build
 
-# Set working directory
 WORKDIR /app
 
-# Accept build arg for backend API URL (passed from Jenkins or docker build)
 ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_API_URL=${VITE_API_URL:-http://localhost}   
 
-# Copy package files first (better layer caching)
 COPY package*.json ./
 
-# Install dependencies (use ci for CI reproducibility, --force if you have conflicts)
-RUN npm ci --force
+# Use fast mirror + retry to survive network drops
+RUN npm config set registry https://registry.npmmirror.com --global && \
+    npm config set disturl https://npmmirror.com/mirrors/node --global && \
+    for i in {1..5}; do \
+        npm ci --force && break || (echo "npm ci attempt $i failed - retrying..." && sleep 15); \
+    done
 
-# Copy source code
 COPY . .
-
-# Build for production
 RUN npm run build
 
 # Stage 2: Serve with Nginx (lightweight)

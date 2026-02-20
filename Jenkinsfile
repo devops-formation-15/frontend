@@ -23,20 +23,21 @@ pipeline {
             }
         }
 
-        stage('Build & Push Docker Image') {
-            steps {
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', env.DOCKERHUB_CREDENTIALS) {
-                        // Build with host network to avoid npm ECONNRESET
-                        def image = docker.build("${IMAGE_NAME}", "--network=host .")
-
-                        // Push two tags
-                        image.push('latest')
-                        image.push("v${VERSION_NUMBER}")
-                    }
-                }
+     stage('Build & Push Docker Image') {
+    steps {
+        script {
+            docker.withRegistry('https://index.docker.io/v1/', env.DOCKERHUB_CREDENTIALS) {
+                // Pass the backend API URL as build arg (adjust URL as needed)
+                def image = docker.build(
+                    "${IMAGE_NAME}",
+                    "--build-arg VITE_API_URL=http://1192.168.100.116/api --network=host ."
+                )
+                image.push('latest')
+                image.push("v${VERSION_NUMBER}")
             }
         }
+    }
+}
 
         stage('Deploy to VPS') {
             steps {

@@ -40,16 +40,16 @@ pipeline {
                     ),
                     string(credentialsId: 'VPS_HOST', variable: 'VPS_HOST')
                 ]) {
-                    sh '''
-                        sshpass -p "$VPS_PASS" ssh \
-                            -o StrictHostKeyChecking=no \
-                            "$VPS_USER@$VPS_HOST" \
-                            "cd ~/projects/shop/devops-scripts/stress-test-scripts/front \
-                             && docker compose pull frontend-app \
-                             && docker compose up -d --force-recreate frontend-app \
-                             && echo 'Deployment finished successfully.' \
-                             && docker compose ps"
-                    '''
+                   sh '''
+    sshpass -p "$VPS_PASS" ssh \
+        -o StrictHostKeyChecking=no \
+        "$VPS_USER@$VPS_HOST" \
+        "cd ~/projects/shop/devops-scripts/stress-test-scripts/front \
+         && docker compose pull frontend-app \
+         && docker compose up -d --force-recreate --remove-orphans frontend-app \
+         && echo 'Deployment finished successfully.' \
+         && docker compose ps"
+'''
                 }
             }
         }

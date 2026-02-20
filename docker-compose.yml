@@ -6,6 +6,7 @@ services:
     build:
       context: .  # Build context is the current directory.
       dockerfile: Dockerfile  # Specify the Dockerfile to use
+      
       args:
         VITE_API_URL: http://localhost:3001  # API URL for the frontend app
     container_name: frontend-app  # Set a custom name for the container

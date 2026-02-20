@@ -22,7 +22,7 @@ pipeline {
                     docker.withRegistry('https://index.docker.io/v1/', env.DOCKERHUB_CREDENTIALS) {
                         def image = docker.build(
                             "${IMAGE_NAME}",
-                            "--build-arg VITE_API_URL=http://192.168.100.116/api ."
+                            "--build-arg VITE_API_URL=http://192.168.100.116 ."
                         )
                         image.push('latest')
                         image.push("v${VERSION_NUMBER}")

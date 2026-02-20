@@ -2,42 +2,39 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'Node20'  // Ensure this is configured in Global Tool Configuration
+        nodejs 'Node20'
     }
 
     environment {
         VERSION_NUMBER          = "${BUILD_NUMBER}"
         SERVICE_NAME            = "frontend-app"
-        IMAGE_NAME              = "nourzakhama2003/front-react"   // base name without tag
+        IMAGE_NAME              = "nourzakhama2003/front-react"
         DOCKER_COMPOSE_LOCATION = "~/projects/shop/devops-scripts/stress-test-scripts/front"
         DOCKERHUB_CREDENTIALS   = "dockerhub-credentials"
     }
 
     stages {
+
         stage('Install Dependencies & Unit Tests') {
             steps {
-                // Clean install dependencies (recommended for CI)
-                sh 'echo "test"'
-
-           
+                sh 'echo "No tests configured yet"'
             }
         }
 
-     stage('Build & Push Docker Image') {
-    steps {
-        script {
-            docker.withRegistry('https://index.docker.io/v1/', env.DOCKERHUB_CREDENTIALS) {
-                // Pass the backend API URL as build arg (adjust URL as needed)
-                def image = docker.build(
-                    "${IMAGE_NAME}",
-                    "--build-arg VITE_API_URL=http://1192.168.100.116/api --network=host ."
-                )
-                image.push('latest')
-                image.push("v${VERSION_NUMBER}")
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', env.DOCKERHUB_CREDENTIALS) {
+                        def image = docker.build(
+                            "${IMAGE_NAME}",
+                            "--build-arg VITE_API_URL=http://192.168.100.116/api ."
+                        )
+                        image.push('latest')
+                        image.push("v${VERSION_NUMBER}")
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Deploy to VPS') {
             steps {
@@ -51,12 +48,13 @@ pipeline {
                 ]) {
                     bat """
                         sshpass -p "%VPS_PASS%" ssh -o StrictHostKeyChecking=no "%VPS_USER%@%VPS_HOST%" ^
-                            "cd ${DOCKER_COMPOSE_LOCATION} || { echo 'ERROR: Directory ${DOCKER_COMPOSE_LOCATION} not found'; exit 1; } && \\
-                             echo 'Deployment started' && \\
-                             docker compose pull ${SERVICE_NAME} || { echo 'Pull failed'; exit 1; } && \\
-                             docker compose up -d --force-recreate ${SERVICE_NAME} || { echo 'Up failed'; exit 1; } && \\
-                             echo 'Deployment finished successfully' && \\
-                             docker compose ps | grep ${SERVICE_NAME}"
+                            "cd ${DOCKER_COMPOSE_LOCATION} || { echo 'ERROR: Directory not found'; exit 1; } && ^
+                             echo 'Logged in as:' && whoami && ^
+                             pwd && ^
+                             ls -la && ^
+                             docker compose pull ${SERVICE_NAME} || { echo 'Pull failed'; exit 1; } && ^
+                             docker compose up -d --force-recreate ${SERVICE_NAME} || { echo 'Up failed'; exit 1; } && ^
+                             echo 'Deployment finished successfully.'"
                     """
                 }
             }
@@ -64,14 +62,8 @@ pipeline {
     }
 
     post {
-        always {
-            echo 'Pipeline finished'
-        }
-        success {
-            echo '✅ Success!'
-        }
-        failure {
-            echo '❌ Failed – check logs'
-        }
+        always { echo 'Pipeline finished' }
+        success { echo '✅ Success!' }
+        failure { echo '❌ Failed – check logs' }
     }
 }

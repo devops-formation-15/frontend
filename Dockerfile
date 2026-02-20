@@ -3,12 +3,12 @@ FROM --platform=linux/amd64 node:18-alpine AS build
 
 WORKDIR /app
 
-# Runtime env fallback (can be overridden by docker-compose)
-ENV VITE_API_URL=${VITE_API_URL:-http://localhost}
+# ✅ ARG must come before ENV to accept --build-arg from docker build
+ARG VITE_API_URL=http://192.168.100.116/api
+ENV VITE_API_URL=${VITE_API_URL}
 
 COPY package*.json ./
 
-# Fast mirror + retry loop
 RUN npm config set registry https://registry.npmmirror.com --global && \
     for i in {1..5}; do \
         npm ci --force && break || (echo "npm ci attempt $i failed - retrying..." && sleep 15); \

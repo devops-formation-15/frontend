@@ -41,7 +41,7 @@ spec:
     IMAGE_NAME        = 'frontend-app'
     DOCKER_HOST       = 'tcp://localhost:2375'
     DOCKER_API_VERSION = '1.43'
-    VITE_API_URL      = 'http://k8s-prod-shopingr-1961e85940-289982297.eu-north-1.elb.amazonaws.com/'
+    VITE_API_URL      = 'http://k8s-prod-shopingr-1961e85940-289982297.eu-north-1.elb.amazonaws.com'
   }
 
   stages {

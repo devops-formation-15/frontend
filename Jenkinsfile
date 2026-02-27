@@ -66,7 +66,7 @@ spec:
 
     stage('Build Docker Image') {
       steps {
-        sh "docker build --build-arg VITE_API_URL=${VITE_API_URL} -t ${ECR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+        sh "docker build --build-arg VITE_API_URL=\"${env.VITE_API_URL}\" -t ${ECR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} ."
       }
     }
 

@@ -1,62 +1,105 @@
 pipeline {
-    agent any
-    tools {
-        nodejs 'Node20'
+  agent {
+    kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  nodeSelector:
+    alpha.eksctl.io/nodegroup-name: jenkins-node
+  containers:
+  - name: jenkins-agent
+    image: nourzakhama2003/jenkins-agent:latest
+    command: [cat]
+    tty: true
+    env:
+    - name: DOCKER_HOST
+      value: tcp://localhost:2375
+    - name: DOCKER_API_VERSION
+      value: "1.43"
+  - name: dind
+    image: docker:24.0.9-dind
+    securityContext:
+      privileged: true
+    env:
+    - name: DOCKER_TLS_CERTDIR
+      value: ""
+    volumeMounts:
+    - name: dind-storage
+      mountPath: /var/lib/docker
+  volumes:
+  - name: dind-storage
+    emptyDir: {}
+"""
+      defaultContainer 'jenkins-agent'
     }
-    environment {
-        VERSION_NUMBER          = "${BUILD_NUMBER}"
-        SERVICE_NAME            = "frontend-app"
-        IMAGE_NAME              = "nourzakhama2003/front-react"
-        DOCKER_COMPOSE_LOCATION = "~/projects/shop/devops-scripts/stress-test-scripts/front"
-        DOCKERHUB_CREDENTIALS   = "dockerhub-credentials"
+  }
+
+  environment {
+    AWS_REGION        = 'eu-north-1'
+    ECR_REGISTRY      = '083347785255.dkr.ecr.eu-north-1.amazonaws.com'
+    IMAGE_NAME        = 'frontend-app'
+    DOCKER_HOST       = 'tcp://localhost:2375'
+    DOCKER_API_VERSION = '1.43'
+    VITE_API_URL      = '' // <-- Set your backend API URL here
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
     }
-    stages {
-        stage('Install Dependencies & Unit Tests') {
-            steps {
-                sh 'echo "No tests configured yet"'
-            }
+
+    stage('Wait for Docker') {
+      steps {
+        sh """
+          echo "Waiting for Docker daemon..."
+          for i in \$(seq 1 30); do
+            docker info > /dev/null 2>&1 && echo "Docker ready!" && break
+            echo "Attempt \$i - retrying in 3s..."
+            sleep 3
+          done
+        """
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        sh "docker build --build-arg VITE_API_URL=${VITE_API_URL} -t ${ECR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+      }
+    }
+
+    stage('Push to ECR') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-ecr-creds']]) {
+          sh """
+            aws ecr get-login-password --region ${AWS_REGION} | \
+            docker login --username AWS --password-stdin ${ECR_REGISTRY}
+            docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+          """
         }
-        stage('Build & Push Docker Image') {
-            steps {
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', env.DOCKERHUB_CREDENTIALS) {
-                        def image = docker.build(
-                            "${IMAGE_NAME}",
-                            "--build-arg VITE_API_URL=http://192.168.100.116 ."
-                        )
-                        image.push('latest')
-                        image.push("v${VERSION_NUMBER}")
-                    }
-                }
-            }
-        }
-        stage('Deploy to VPS') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'vps-vagrant-password',
-                        usernameVariable: 'VPS_USER',
-                        passwordVariable: 'VPS_PASS'
-                    ),
-                    string(credentialsId: 'VPS_HOST', variable: 'VPS_HOST')
-                ]) {
-                   sh '''
-    sshpass -p "$VPS_PASS" ssh \
-        -o StrictHostKeyChecking=no \
-        "$VPS_USER@$VPS_HOST" \
-        "cd ~/projects/shop/devops-scripts/stress-test-scripts/front \
-         && docker compose pull frontend-app \
-         && docker compose up -d --force-recreate --remove-orphans frontend-app \
-         && echo 'Deployment finished successfully.' \
-         && docker compose ps"
-'''
-                }
-            }
-        }
+      }
     }
-    post {
-        always { echo 'Pipeline finished' }
-        success { echo 'Success!' }
-        failure { echo 'Failed - check logs' }
+
+    stage('Deploy to EKS') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-ecr-creds']]) {
+          sh """
+            aws eks update-kubeconfig --name demo-test --region ${AWS_REGION}
+            kubectl set image deployment/frontend-deployment frontend=${ECR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} -n prod
+          """
+        }
+      }
     }
+  }
+
+  post {
+    success {
+      echo "✅ Pipeline succeeded! Image: ${ECR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
+    }
+    failure {
+      echo "❌ Pipeline failed! Check logs above."
+    }
+  }
 }

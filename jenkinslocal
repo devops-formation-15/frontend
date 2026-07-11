@@ -6,7 +6,7 @@ pipeline {
     environment {
         VERSION_NUMBER          = "${BUILD_NUMBER}"
         SERVICE_NAME            = "frontend-app"
-        IMAGE_NAME              = "nourzakhama2003/front-react"
+        IMAGE_NAME              = "nour2003322/front-react"
         DOCKER_COMPOSE_LOCATION = "~/projects/shop/devops-scripts/stress-test-scripts/front"
         DOCKERHUB_CREDENTIALS   = "dockerhub-credentials"
     }
